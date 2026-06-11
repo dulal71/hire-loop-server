@@ -30,8 +30,50 @@ async function run() {
     const jobCollection = database.collection("jobs");
     const companiesCollection = database.collection("companies");
     const userCollection = database.collection("user");
- 
+    const applicationCollection = database.collection("application");
+ const plansCollection = database.collection("plans")
+ const subscriptionCollection = database.collection("subscriptions")
+    // get application by Id 
+    app.get('/api/application' ,async(req,res)=>{
+      try{
+        const query={}
+        if(req.query.applicantId){
+          query.applicantId=req.query.applicantId
+        }
+        if(req.query.jobId){
+          query.jobId=req.query.jobId
+        }
+        const cursor= applicationCollection.find(query)
+const result = await cursor.toArray()
+res.send(result)
+      }catch(error){
+res.status(500).json({
+  success:false,
+  error: error.message,
+})
+    }
+    })
+    // post application
+
+    app.post('/api/application',async(req,res)=>{
+     try{
+const application=req.body;
+      const newApplication={
+        ...application,
+        createAt:new Date()
+      }
+      const result = await applicationCollection.insertOne(newApplication)
+   res.send(result)
+     }catch(error){
+res.status(500).json({
+    success: false,
+    error: error.message,
+  });
+    }
+      
+    })
  // user
+
     app.get('/api/user',async(req,res)=>{
     try{
     const cursor=userCollection.find().skip(1)
@@ -44,6 +86,7 @@ res.status(500).json({
   });
     }
   })
+
   //company
     app.get('/api/companies',async(req,res)=>{
     try{
@@ -80,6 +123,7 @@ res.status(500).json({
   });
     }
   })
+  
   // get job by id
   app.get('/api/jobs/:jobId',async(req,res)=>{
     try{
@@ -149,6 +193,41 @@ res.status(500).json({
     error: error.message,
   });
     }
+})
+// get seeker plan 
+app.get("/api/plans",async(req,res)=>{
+  try{
+    const query={}
+    if(req.query.plan_id){
+      query.plan_id=req.query.plan_id
+    }
+    const result = await plansCollection.findOne(query)
+    res.send(result)
+
+  }catch(error){
+    res.status(500).json({
+     success: false,
+    error: error.message,  
+    })
+  }
+})
+
+app.post('/api/subscriptions',async(req,res)=>{
+  const data = req.body
+  const subInfo={
+    ...data,
+    createAt: new Date()
+  }
+  const result = await subscriptionCollection.insertOne(subInfo)
+  res.send(result)
+  const filter={email : data.email}
+  const updateDocument={
+    $set:{
+      plan:data.planId
+    }
+  }
+  const updateResult=await userCollection.updateOne(filter,updateDocument)
+  res.send(updateResult)
 })
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
