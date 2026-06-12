@@ -100,6 +100,20 @@ res.status(500).json({
   });
     }
   })
+  // update status
+  app.patch('/api/companies/:id',async(req,res)=>{
+    const id = req.params.id
+    const updateStatus= req.body
+    console.log(updateStatus);
+   const filter = {_id : new ObjectId(id)}
+   const updateData ={
+    $set:{
+      status:updateStatus.status
+    }
+   }
+   const result = await companiesCollection.updateOne(filter,updateData)
+   res.send(result)
+  })
   
     //get company id based job
   app.get('/api/jobs',async(req,res)=>{
