@@ -90,9 +90,34 @@ res.status(500).json({
   //company
     app.get('/api/companies',async(req,res)=>{
     try{
-    const cursor=companiesCollection .find().skip(1)
-    const result = await cursor.toArray()
-     res.send(result);
+    const cursor=companiesCollection .aggregate([
+     {
+       $addFields:{
+        companyIdStr: { $toString: "$_id" }
+      }
+     },
+     {
+        $lookup: {
+          from: "jobs", 
+          localField: "companyIdStr", 
+          foreignField: "companyId", 
+          as: "matchedJobs"
+        }
+      },
+      {
+        $addFields:{
+          postJobs:{$size : "$matchedJobs"}
+        }
+      },
+      {
+        $project: {
+          companyIdStr: 0,
+          matchedJobs: 0
+        }
+      }
+    ])
+    const companies = await cursor.toArray()
+    res.send(companies);
 }catch(error){
 res.status(500).json({
     success: false,
@@ -100,9 +125,43 @@ res.status(500).json({
   });
     }
   })
+
+  //   app.get('/api/stats',async(req,res)=>{
+  //  const pipeline=[
+  //   {
+  //     $group:{
+  //       _id:'$jobType',
+  //       count: { $sum: 1 }
+  //     }
+  //   },
+  //   {
+  //     $sort: {count : -1}
+  //   },
+  //   {
+  //     $project:{ _id:0 , jobType:'$_id',count:1 }
+  //   }
+  //  ]
+  //   const cursor=jobCollection.aggregate(pipeline)
+  //   const result = await cursor.toArray()
+  //   res.send(result)
+  // })
+//     app.get('/api/companies',async(req,res)=>{
+//     try{
+//     const cursor=companiesCollection .find().skip(1)
+//     const result = await cursor.toArray()
+//      res.send(result);
+// }catch(error){
+// res.status(500).json({
+//     success: false,
+//     error: error.message,
+//   });
+//     }
+//   })
   // update status
+ 
   app.patch('/api/companies/:id',async(req,res)=>{
-    const id = req.params.id
+    try{
+const id = req.params.id
     const updateStatus= req.body
     console.log(updateStatus);
    const filter = {_id : new ObjectId(id)}
@@ -113,6 +172,13 @@ res.status(500).json({
    }
    const result = await companiesCollection.updateOne(filter,updateData)
    res.send(result)
+    }catch(error){
+res.status(500).json({
+  success: false,
+    error: error.message,
+})
+    }
+    
   })
   
     //get company id based job
