@@ -9,7 +9,18 @@ app.use(cors())
 app.use(express.json())
 
 
-
+const verifyToken =(req,res,next)=>{
+  console.log('headers',req.headers);
+  const authorization = req.headers.authorization
+  if(!authorization){
+return res.status(401).send({ message: 'unauthorized access'})
+  }
+  const token = authorization.split(" ")[1]
+  if(!token){
+   return res.status(401).send({ message: 'unauthorized access'}) 
+  }
+  next()
+}
 
 const uri=process.env.MONGO_DB_URI
 
@@ -33,13 +44,74 @@ async function run() {
     const applicationCollection = database.collection("application");
  const plansCollection = database.collection("plans")
  const subscriptionCollection = database.collection("subscriptions")
-    // get application by Id 
-    app.get('/api/application' ,async(req,res)=>{
+   const sessionCollection = database.collection("session") 
+ 
+
+ // user verification
+
+ const verifyToken =async(req,res,next)=>{
+  
+  const authorization = req.headers.authorization
+  if(!authorization){
+return res.status(401).send({ message: 'unauthorized access'})
+  }
+  const token = authorization.split(" ")[1]
+  if(!token){
+   return res.status(401).send({ message: 'unauthorized access'}) 
+  }
+  const query={ token:token}
+  // get session data for user 
+  const session = await sessionCollection.findOne(query)
+ 
+  const userId=session?.userId
+  // get specific user 
+   const userQuery={_id:userId}
+   const user = await userCollection.findOne(userQuery)
+   // set data in the request object 
+   req.user = user
+   next()
+}
+
+// must be use after verifyToken middleware
+
+
+// verifySeeker
+const verifySeeker =async (req,res,next)=>{
+  if(req.user?.role !== 'seeker'){
+ return res.status(403).send({ message: 'forbidden access'}) 
+  }
+ next()
+}
+// verifyAdmin
+const verifyAdmin =async (req,res,next)=>{
+  if(req.user?.role !== 'admin'){
+ return res.status(403).send({ message: 'forbidden access'}) 
+  }
+ next()
+}
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ // get application by Id 
+    app.get('/api/application' , verifyToken , verifySeeker ,async(req,res)=>{
       try{
         const query={}
         if(req.query.applicantId){
           query.applicantId=req.query.applicantId
         }
+        if(req.user._id.toString() !== req.query.applicantId){
+          return res.status(403).send({ message: 'forbidden access'}) 
+        }
+        console.log(req.user , req.query.applicantId);
         if(req.query.jobId){
           query.jobId=req.query.jobId
         }
@@ -88,7 +160,7 @@ res.status(500).json({
   })
 
   //company
-    app.get('/api/companies',async(req,res)=>{
+    app.get('/api/companies', verifyToken ,async(req,res)=>{
     try{
     const cursor=companiesCollection .aggregate([
      {
@@ -159,7 +231,7 @@ res.status(500).json({
 //   })
   // update status
  
-  app.patch('/api/companies/:id',async(req,res)=>{
+  app.patch('/api/companies/:id',verifyToken , verifyAdmin, async(req,res)=>{
     try{
 const id = req.params.id
     const updateStatus= req.body
