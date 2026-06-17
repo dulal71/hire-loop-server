@@ -62,17 +62,29 @@ return res.status(401).send({ message: 'unauthorized access'})
   const query={ token:token}
   // get session data for user 
   const session = await sessionCollection.findOne(query)
- 
+ if(!session){
+   return res.status(401).send({ message: 'unauthorized access'}) 
+  }
   const userId=session?.userId
   // get specific user 
    const userQuery={_id:userId}
    const user = await userCollection.findOne(userQuery)
+   if(!user){
+   return res.status(401).send({ message: 'unauthorized access'}) 
+  }
    // set data in the request object 
    req.user = user
    next()
 }
 
 // must be use after verifyToken middleware
+// verifyRecruiter
+const verifyRecruiter =async (req,res,next)=>{
+  if(req.user?.role !== 'recruiter'){
+ return res.status(403).send({ message: 'forbidden access'}) 
+  }
+ next()
+}
 
 
 // verifySeeker
@@ -125,9 +137,11 @@ res.status(500).json({
 })
     }
     })
+
+
     // post application
 
-    app.post('/api/application',async(req,res)=>{
+    app.post('/api/application', verifyToken , verifyRecruiter,async(req,res)=>{
      try{
 const application=req.body;
       const newApplication={
@@ -144,9 +158,11 @@ res.status(500).json({
     }
       
     })
+
+
  // user
 
-    app.get('/api/user',async(req,res)=>{
+    app.get('/api/user', verifyToken , verifyRecruiter,async(req,res)=>{
     try{
     const cursor=userCollection.find().skip(1)
     const result = await cursor.toArray()
@@ -160,7 +176,7 @@ res.status(500).json({
   })
 
   //company
-    app.get('/api/companies', verifyToken ,async(req,res)=>{
+    app.get('/api/companies', verifyToken,verifyAdmin ,async(req,res)=>{
     try{
     const cursor=companiesCollection .aggregate([
      {
@@ -256,14 +272,49 @@ res.status(500).json({
     //get company id based job
   app.get('/api/jobs',async(req,res)=>{
     try{
+      const searchQuery=req.query
+      console.log(searchQuery);
         const companyId= req.query.companyId 
     const status= req.query.status
     const query={}
+    // job related query
+     if(req.query.search){
+     
+      query.$or=[
+        {jobTitle: { $regex:req.query.search, $options: "i" }},
+        {companyName: { $regex:req.query.search, $options: "i" }}
+      ]
+    
+      
+    }
+    if(req.query.jobType){
+      query.jobType = req.query.jobType
+    }
+    if(req.query.jobCategory){
+      query.jobCategory = req.query.jobCategory
+    }
+    if(req.query. isRemote){
+      query.isRemote= req.query.isRemote
+    }
+    // company related query
     if(companyId) {
         query.companyId=companyId
     }
     if(status) {
         query.status=status
+    }
+
+
+    // pagination related work
+    if(req.query.page){
+    const page = req.query.page;
+      const perPage = 12;
+      const skip=(page - 1) * 12;
+      const total = await jobCollection.countDocuments(query)
+      const cursor=jobCollection.find(query).skip(skip).limit(perPage);
+    const jobs = await cursor.toArray()
+    return res.send({total , jobs});
+     
     }
     const cursor=jobCollection.find(query)
     const result = await cursor.toArray()
@@ -277,7 +328,7 @@ res.status(500).json({
   })
   
   // get job by id
-  app.get('/api/jobs/:jobId',async(req,res)=>{
+  app.get('/api/jobs/:jobId',verifyToken , verifyRecruiter,async(req,res)=>{
     try{
        const id=req.params.jobId
     const query={
@@ -311,7 +362,7 @@ res.status(500).json({
     }
 })
     //add new companies
-app.post("/api/companies",async(req,res)=>{
+app.post("/api/companies",verifyToken , verifyRecruiter,async(req,res)=>{
     try{
 const companies=req.body;
 const newCompanies={
@@ -329,7 +380,7 @@ res.status(500).json({
 })
 
 // company 
-app.get('/api/my/company',async(req, res)=>{
+app.get('/api/my/company',verifyToken , verifyRecruiter,async(req, res)=>{
   try{
     const query={}
   if(req.query.recruiterId){
