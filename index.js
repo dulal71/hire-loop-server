@@ -9,18 +9,7 @@ app.use(cors())
 app.use(express.json())
 
 
-const verifyToken =(req,res,next)=>{
-  console.log('headers',req.headers);
-  const authorization = req.headers.authorization
-  if(!authorization){
-return res.status(401).send({ message: 'unauthorized access'})
-  }
-  const token = authorization.split(" ")[1]
-  if(!token){
-   return res.status(401).send({ message: 'unauthorized access'}) 
-  }
-  next()
-}
+
 
 const uri=process.env.MONGO_DB_URI
 
@@ -33,10 +22,14 @@ const client = new MongoClient(uri, {
 });
 
 
-async function run() {
-  try {
-    // Connect the client to the server	(optional starting in v4.7)
-    await client.connect();
+// async function run() {
+//   try {
+//     // Connect the client to the server	(optional starting in v4.7)
+//     await client.connect();
+
+client.connect(()=>{
+  console.log("connecting to mongodb");
+}).catch(console.dir)
     const database = client.db("Hire-loop-user");
     const jobCollection = database.collection("jobs");
     const companiesCollection = database.collection("companies");
@@ -103,16 +96,7 @@ const verifyAdmin =async (req,res,next)=>{
 }
  
  
- 
- 
- 
- 
- 
- 
- 
- 
- 
- 
+
  // get application by Id 
     app.get('/api/application' , verifyToken , verifySeeker ,async(req,res)=>{
       try{
@@ -433,14 +417,14 @@ app.post('/api/subscriptions',async(req,res)=>{
   res.send(updateResult)
 })
     // Send a ping to confirm a successful connection
-    await client.db("admin").command({ ping: 1 });
-    console.log("Pinged your deployment. You successfully connected to MongoDB!");
-  } finally {
-    // Ensures that the client will close when you finish/error
-    // await client.close();
-  }
-}
-run().catch(console.dir);
+    // await client.db("admin").command({ ping: 1 });
+//     console.log("Pinged your deployment. You successfully connected to MongoDB!");
+// //   } finally {
+// //     // Ensures that the client will close when you finish/error
+// //     // await client.close();
+// //   }
+// // }
+// // run().catch(console.dir);
 
 app.get('/', (req, res) => {
   res.send('Hello World!')
@@ -449,3 +433,4 @@ app.get('/', (req, res) => {
 app.listen(port, () => {
   console.log(`Example app listening on port ${port}`)
 })
+module.exports = app
